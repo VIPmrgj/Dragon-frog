@@ -1,0 +1,773 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover" />
+<meta name="theme-color" content="#fff2dc" />
+<title>奶龙捏捏乐</title>
+<link rel="icon" href="图片/图标.png" />
+<style>
+  :root {
+    --cream: #fff2dc; --amber: #ffb400; --gray: #87837e;
+    --coral: #ff5a5f; --teal: #16c2a3; --blue: #3e7bfa;
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html, body { height: 100%; overflow: hidden; }
+  body {
+    font-family: "PingFang SC", "Microsoft YaHei", system-ui, sans-serif;
+    background: var(--cream); color: var(--gray);
+    -webkit-tap-highlight-color: transparent;
+    user-select: none; -webkit-user-select: none; touch-action: none;
+  }
+  #stage { position: fixed; inset: 0; overflow: hidden; isolation: isolate; background: var(--cream); }
+  #stage::before {
+    content: "";
+    position: absolute; inset: 0;
+    background: radial-gradient(ellipse 60% 50% at 50% 45%, rgba(255,180,0,.08) 0%, transparent 70%),
+                radial-gradient(ellipse 40% 30% at 30% 70%, rgba(255,90,95,.05) 0%, transparent 70%);
+    pointer-events: none;
+  }
+  #fx { position: absolute; inset: 0; z-index: 5; pointer-events: none; }
+
+  /* ★ 每只奶龙的槽位 */
+  .nailong-slot {
+    position: absolute;
+    pointer-events: none;
+    will-change: left, top, width;
+    transition: left .35s cubic-bezier(.4,0,.2,1), top .35s cubic-bezier(.4,0,.2,1), width .35s cubic-bezier(.4,0,.2,1);
+  }
+  .nailong-slot .char-inner {
+    width: 100%;
+    pointer-events: auto;
+    cursor: grab;
+    will-change: transform;
+    transform-origin: 50% 50%;
+  }
+  .nailong-slot .char-inner:active { cursor: grabbing; }
+  .nailong-slot .char-jelly {
+    position: relative;
+    will-change: transform, filter;
+    transform-origin: 50% 50%;
+  }
+  .nailong-slot .char-img {
+    width: 100%; display: block;
+    filter: drop-shadow(0 14px 30px rgba(135,131,126,.35));
+  }
+  .nailong-slot .squeeze-ring {
+    position: absolute; inset: -25px; border-radius: 50%;
+    border: 3px solid rgba(255,180,0,0);
+    pointer-events: none;
+    will-change: transform, border-color, opacity;
+    transform: scale(0.8); opacity: 0;
+  }
+
+  /* 顶部控制 */
+  #top-controls {
+    position: absolute;
+    top: max(14px, env(safe-area-inset-top));
+    left: max(14px, env(safe-area-inset-left));
+    right: max(14px, env(safe-area-inset-right));
+    z-index: 20;
+    display: flex; align-items: flex-start; justify-content: space-between;
+    filter: drop-shadow(0 6px 14px rgba(135,131,126,.22));
+    pointer-events: none;
+  }
+  .control-group { display: flex; gap: 8px; }
+  .control-button {
+    --btn-edge: rgba(135,131,126,.72); --btn-fill: rgba(255,242,220,.92);
+    position: relative;
+    min-width: 68px; min-height: 44px; padding: 8px 14px;
+    border: none;
+    display: inline-flex; align-items: center; justify-content: center; gap: 6px;
+    color: var(--gray); background: var(--btn-edge);
+    clip-path: polygon(10px 0, calc(100% - 10px) 0, 100% 10px, 100% calc(100% - 10px),
+                       calc(100% - 10px) 100%, 10px 100%, 0 calc(100% - 10px), 0 10px);
+    font: 700 13px/1 "PingFang SC", "Microsoft YaHei", system-ui, sans-serif;
+    cursor: pointer; pointer-events: auto; touch-action: manipulation;
+    -webkit-tap-highlight-color: transparent; transition: color .2s ease;
+  }
+  .control-button::before {
+    content: "";
+    position: absolute; inset: 2px; z-index: -1; background: var(--btn-fill);
+    clip-path: polygon(8px 0, calc(100% - 8px) 0, 100% 8px, 100% calc(100% - 8px),
+                       calc(100% - 8px) 100%, 8px 100%, 0 calc(100% - 8px), 0 8px);
+    transition: background .2s ease;
+  }
+  .control-button:active { transform: scale(.94); }
+  .control-button:focus-visible { outline: 3px solid rgba(62,123,250,.38); outline-offset: 2px; }
+  @media (hover: hover) { .control-button:hover { --btn-edge: rgba(255,180,0,.85); } }
+  .control-button.is-muted {
+    --btn-edge: rgba(255,90,95,.68); --btn-fill: rgba(255,255,255,.94); color: var(--coral);
+  }
+  .control-button svg {
+    width: 20px; height: 20px; overflow: visible;
+    fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round;
+  }
+  .control-button .mute-slash { opacity: 0; stroke: var(--coral); stroke-width: 2.6; transition: opacity .2s ease; }
+  .control-button.is-muted .mute-slash { opacity: 1; }
+  #btn-count {
+    font: 700 14px/1 "PingFang SC", "Microsoft YaHei", system-ui, sans-serif;
+    letter-spacing: .03em;
+  }
+  .count-num { color: var(--amber); font-size: 1.1em; margin: 0 2px; }
+
+  #hint {
+    position: absolute;
+    bottom: max(32px, env(safe-area-inset-bottom));
+    left: 50%; transform: translateX(-50%); z-index: 15;
+    color: rgba(135,131,126,.55);
+    font: 600 14px/1.4 "PingFang SC", "Microsoft YaHei", system-ui, sans-serif;
+    letter-spacing: .04em; pointer-events: none; transition: opacity .6s ease;
+  }
+  #hint-sub {
+    position: absolute;
+    bottom: max(14px, env(safe-area-inset-bottom));
+    left: 50%; transform: translateX(-50%); z-index: 15;
+    color: rgba(135,131,126,.45);
+    font: 600 12px/1.4 "PingFang SC", "Microsoft YaHei", system-ui, sans-serif;
+    letter-spacing: .04em; pointer-events: none; transition: opacity .6s ease;
+  }
+  #loading {
+    position: fixed; inset: 0; z-index: 99;
+    display: flex; flex-direction: column;
+    align-items: center; justify-content: center; gap: 20px;
+    background: var(--cream);
+    transition: opacity .4s ease, visibility 0s linear .4s;
+  }
+  #loading.is-done { opacity: 0; visibility: hidden; }
+  #loading-icon { font-size: 64px; animation: loadBounce .7s ease-in-out infinite alternate; }
+  @keyframes loadBounce {
+    from { transform: translateY(0) scale(1); }
+    to   { transform: translateY(-12px) scale(1.08); }
+  }
+  #loading-text { color: var(--gray); font: 600 15px/1 "PingFang SC", "Microsoft YaHei", system-ui, sans-serif; letter-spacing: .06em; }
+  #loading-bar { width: 180px; height: 4px; background: rgba(135,131,126,.15); border-radius: 2px; overflow: hidden; }
+  #loading-fill { height: 100%; width: 0%; background: var(--amber); border-radius: 2px; transition: width .25s ease; }
+  @media (prefers-reduced-motion: reduce) {
+    .nailong-slot, .nailong-slot .char-inner, .nailong-slot .char-jelly, #fx { animation: none !important; transition: none !important; }
+  }
+</style>
+</head>
+<body>
+
+<div id="loading">
+  <div id="loading-icon"><img src="图片/图标.png" alt="奶龙" style="width:80px;height:80px;" /></div>
+  <div id="loading-text">奶龙加载中…</div>
+  <div id="loading-bar"><div id="loading-fill"></div></div>
+</div>
+
+<div id="stage">
+  <canvas id="fx"></canvas>
+
+  <!-- ★ 三只奶龙槽位（最多同时显示3只） -->
+  <div class="nailong-slot" data-nid="0">
+    <div class="char-inner">
+      <div class="char-jelly">
+        <img class="char-img" src="图片/侧，闭眼.png" alt="奶龙" draggable="false" />
+      </div>
+      <div class="squeeze-ring"></div>
+    </div>
+  </div>
+  <div class="nailong-slot" data-nid="1">
+    <div class="char-inner">
+      <div class="char-jelly">
+        <img class="char-img" src="图片/侧，闭眼.png" alt="奶龙" draggable="false" />
+      </div>
+      <div class="squeeze-ring"></div>
+    </div>
+  </div>
+  <div class="nailong-slot" data-nid="2">
+    <div class="char-inner">
+      <div class="char-jelly">
+        <img class="char-img" src="图片/侧，闭眼.png" alt="奶龙" draggable="false" />
+      </div>
+      <div class="squeeze-ring"></div>
+    </div>
+  </div>
+
+  <div id="top-controls">
+    <div class="control-group">
+      <button class="control-button" id="btn-count">
+        奶龙数量 - <span class="count-num" id="count-num">1</span> +
+      </button>
+      <button class="control-button" id="btn-overlap">声音覆盖</button>
+    </div>
+    <div class="control-group">
+      <a class="control-button" href="https://ifdian.net/a/VIPmrgj" target="_blank" rel="noopener" id="btn-support" title="支持我" style="text-decoration:none;">❤️ 支持我</a>
+      <button class="control-button" id="btn-sound" title="音效">
+        <svg viewBox="0 0 24 24">
+          <polygon points="11,5 6,9 2,9 2,15 6,15 11,19 11,5" />
+          <path d="M15.5,8.5a5,5 0 0 1 0,7" />
+          <path d="M18.5,5.5a9,9 0 0 1 0,13" />
+          <line class="mute-slash" x1="2" y1="2" x2="22" y2="22" />
+        </svg>
+      </button>
+      <button class="control-button" id="btn-reset" title="重置">
+        <svg viewBox="0 0 24 24">
+          <polyline points="1,4 1,10 7,10" />
+          <path d="M1,12a11,11 0 1,0 4-8.5" />
+        </svg>
+      </button>
+    </div>
+  </div>
+
+  <div id="hint">按住奶龙 — 捏捏捏 🤏</div>
+  <div id="hint-sub">拖拽拉伸 · 松手回弹</div>
+</div>
+
+<script>
+(function() {
+  // ============================================================
+  //  DOM
+  // ============================================================
+  const fxCanvas    = document.getElementById('fx');
+  const ctx         = fxCanvas.getContext('2d');
+  const hint        = document.getElementById('hint');
+  const hintSub     = document.getElementById('hint-sub');
+  const loadOverlay = document.getElementById('loading');
+  const loadFill    = document.getElementById('loading-fill');
+  const btnSound    = document.getElementById('btn-sound');
+  const btnCount    = document.getElementById('btn-count');
+  const btnOverlap  = document.getElementById('btn-overlap');
+  const countNum    = document.getElementById('count-num');
+  let allowOverlap = true; // ★ 默认不覆盖（更有意思）
+
+  // ★ 三只奶龙的 DOM 引用
+  const slots = [];
+  for (let i = 0; i < 3; i++) {
+    const slot = document.querySelector(`.nailong-slot[data-nid="${i}"]`);
+    slots.push({
+      slot,
+      inner:  slot.querySelector('.char-inner'),
+      jelly:  slot.querySelector('.char-jelly'),
+      img:    slot.querySelector('.char-img'),
+      ring:   slot.querySelector('.squeeze-ring')
+    });
+  }
+
+  // ============================================================
+  //  音频（双轨：Web Audio + <audio> 兜底）
+  // ============================================================
+  const SOUND_FILES = [
+    '音效/安迪.wav','音效/大笑.wav','音效/嘎嘎提拉瞎.wav',
+    '音效/噶韭菜.wav','音效/哦啦.wav','音效/干巴得.wav'
+  ];
+  const LAUGH_IDX = 1;
+  const IMG_CLOSED = '图片/侧，闭眼.png';
+  const IMG_OPEN   = '图片/侧，睁眼.png';
+  const IMG_LAUGH  = '图片/大笑.png';
+
+  let audioCtx = null;
+  let laughBuf  = null, clickBufs = [];
+  let laughEl   = null, clickEls  = [];
+  let useWebAudio = false, soundEnabled = true;
+
+  function updateProgress(pct) { loadFill.style.width = Math.round(pct*100) + '%'; }
+
+  async function preloadImages() {
+    await Promise.all([IMG_CLOSED, IMG_OPEN, IMG_LAUGH].map(path => new Promise(resolve => {
+      const img = new Image();
+      img.onload = resolve; img.onerror = () => { console.warn('图片加载失败:', path); resolve(); };
+      img.src = path;
+    })));
+    updateProgress(0.35);
+  }
+
+  async function loadOneSound(path, i) {
+    try {
+      let buf;
+      try { const res = await fetch(path); if (!res.ok) throw new Error('HTTP '+res.status); buf = await res.arrayBuffer(); }
+      catch (_) {
+        buf = await new Promise((resolve, reject) => {
+          const xhr = new XMLHttpRequest(); xhr.open('GET', path, true); xhr.responseType = 'arraybuffer';
+          xhr.onload = () => { if (xhr.status===200||xhr.status===0) resolve(xhr.response); else reject(new Error('XHR '+xhr.status)); };
+          xhr.onerror = () => reject(new Error('XHR failed')); xhr.send();
+        });
+      }
+      return { idx: i, buffer: await audioCtx.decodeAudioData(buf), webAudio: true };
+    } catch (e) {
+      console.warn('Web Audio 失败，&lt;audio&gt; 兜底:', path, e.message);
+      const el = new Audio(path); el.preload = 'auto'; el.volume = 0.7;
+      await new Promise(resolve => { el.oncanplaythrough = resolve; el.onerror = () => { console.warn('<audio> 失败:', path); resolve(); }; el.load(); setTimeout(resolve, 2000); });
+      return { idx: i, element: el, webAudio: false };
+    }
+  }
+
+  async function loadSounds() {
+    if (!soundEnabled) { updateProgress(1); return; }
+    audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    let loaded = 0; const total = SOUND_FILES.length;
+    const results = await Promise.all(SOUND_FILES.map((p,i) => loadOneSound(p,i).then(r => { loaded++; updateProgress(0.35+(loaded/total)*0.6); return r; })));
+    useWebAudio = results.some(r => r && r.webAudio);
+    for (const r of results) {
+      if (!r) continue;
+      if (r.idx === LAUGH_IDX) { if (useWebAudio && r.buffer) laughBuf = r.buffer; if (r.element) laughEl = r.element; }
+      else { if (useWebAudio && r.buffer) clickBufs.push(r.buffer); if (r.element) clickEls.push(r.element); }
+    }
+    updateProgress(1);
+    console.log('🔊 音效就绪 ('+(useWebAudio?'Web Audio':'<audio>兜底')+') 大笑:'+(laughBuf||laughEl?'✓':'✗')+' 点击:'+Math.max(clickBufs.length,clickEls.length)+'个');
+  }
+
+  function unlockAudio() { if (audioCtx && audioCtx.state === 'suspended') audioCtx.resume(); }
+
+  // ★ 覆盖模式下清空所有音源
+  function stopNailongSound(nl) {
+    if (allowOverlap) return;
+    nl._sources = nl._sources || [];
+    while (nl._sources.length > 0) _killSource(nl._sources.shift(), nl);
+  }
+  function _killSource(s, nl) {
+    try {
+      if (s.el) { s.el.pause(); s.el.currentTime = 0; s.el.loop = false; s.el.onended = null; }
+      else if (s.node) { s.node.onended = null; s.node.stop(); }
+    } catch(_) {}
+    if (nl._pending > 0) nl._pending--;
+  }
+  function _rmSource(nl, obj) {
+    const i = (nl._sources||[]).indexOf(obj);
+    if (i >= 0) nl._sources.splice(i, 1);
+  }
+
+  // ★ 播放，绑定到指定奶龙，最多同时叠加 3 层
+  function playFor(nl, buf, el, rateRange, loop, onEnd) {
+    stopNailongSound(nl);
+    nl._sources = nl._sources || [];
+
+    // 超过 3 层：停最旧的
+    while (nl._sources.length >= 3) _killSource(nl._sources.shift(), nl);
+
+    if (onEnd) {
+      const orig = onEnd;
+      nl._pending = (nl._pending || 0) + 1;
+      onEnd = () => { nl._pending = Math.max(0, (nl._pending||1) - 1); if (nl._pending <= 0) orig(); };
+    }
+
+    const obj = { node: null, el: null };
+    nl._sources.push(obj);
+
+    if (useWebAudio && buf) {
+      if (audioCtx.state === 'suspended') audioCtx.resume();
+      const src = audioCtx.createBufferSource();
+      src.buffer = buf; src.loop = !!loop;
+      src.playbackRate.value = rateRange ? (rateRange[0]+Math.random()*(rateRange[1]-rateRange[0])) : 1;
+      const gain = audioCtx.createGain(); gain.gain.setValueAtTime(0.7, audioCtx.currentTime);
+      src.connect(gain).connect(audioCtx.destination);
+      src.onended = () => { _rmSource(nl, obj); if (onEnd) onEnd(); };
+      src.start();
+      obj.node = src;
+    } else if (el) {
+      const a = loop ? el : el.cloneNode();
+      a.volume = 0.7; a.loop = !!loop; a.currentTime = 0;
+      a.onended = () => { _rmSource(nl, obj); if (onEnd) onEnd(); };
+      a.play().catch(e => console.warn('play() 失败:', e.message));
+      obj.el = a;
+    } else {
+      _rmSource(nl, obj);
+      if (onEnd) { nl._pending = Math.max(0, (nl._pending||1) - 1); if (nl._pending <= 0) onEnd(); }
+    }
+  }
+
+  function playClickFor(nl, onEnd) {
+    if (!soundEnabled) { if (onEnd) onEnd(); return; }
+    if (useWebAudio && clickBufs.length > 0) playFor(nl, clickBufs[Math.floor(Math.random()*clickBufs.length)], null, [0.85,1.2], false, onEnd);
+    else if (clickEls.length > 0) playFor(nl, null, clickEls[Math.floor(Math.random()*clickEls.length)], null, false, onEnd);
+    else if (onEnd) onEnd();
+  }
+
+  function startLaughFor(nl) {
+    if (!soundEnabled) return;
+    nl._laughLoop = true;
+    _playLaughLoop(nl);
+  }
+  function _playLaughLoop(nl) {
+    if (!nl._laughLoop) return;
+    // 大笑不经过三层限制（用 stopNailongSound 清旧大笑，再播新的）
+    if (useWebAudio && laughBuf) {
+      if (!allowOverlap) stopNailongSound(nl);
+      nl._sources = nl._sources || [];
+      if (audioCtx.state === 'suspended') audioCtx.resume();
+      const src = audioCtx.createBufferSource();
+      src.buffer = laughBuf; src.loop = false;
+      src.playbackRate.value = 0.9 + Math.random() * 0.2;
+      const gain = audioCtx.createGain(); gain.gain.setValueAtTime(0.7, audioCtx.currentTime);
+      src.connect(gain).connect(audioCtx.destination);
+      const obj = { node: src, el: null };
+      nl._sources.push(obj);
+      src.onended = () => { _rmSource(nl, obj); if (nl._laughLoop) _playLaughLoop(nl); };
+      src.start();
+    } else if (laughEl) {
+      if (!allowOverlap) stopNailongSound(nl);
+      nl._sources = nl._sources || [];
+      const a = laughEl.cloneNode();
+      a.volume = 0.7; a.loop = true; a.currentTime = 0;
+      const obj = { node: null, el: a };
+      nl._sources.push(obj);
+      a.onended = () => { _rmSource(nl, obj); if (nl._laughLoop) _playLaughLoop(nl); };
+      a.play().catch(e => console.warn('play() 失败:', e.message));
+    }
+  }
+  function stopLaughFor(nl) {
+    nl._laughLoop = false;
+    // ★ 大笑循环强制停止，不受叠加开关影响
+    nl._sources = nl._sources || [];
+    while (nl._sources.length > 0) {
+      const s = nl._sources.shift();
+      try {
+        if (s.el) { s.el.pause(); s.el.currentTime = 0; s.el.loop = false; s.el.onended = null; }
+        else if (s.node) { s.node.onended = null; s.node.stop(); }
+      } catch(_) {}
+    }
+  }
+
+  // ============================================================
+  //  画布 & 粒子（共享）
+  // ============================================================
+  function resizeCanvas() {
+    const dpr = Math.min(window.devicePixelRatio||1, 2);
+    fxCanvas.width = window.innerWidth*dpr; fxCanvas.height = window.innerHeight*dpr;
+    fxCanvas.style.width = window.innerWidth+'px'; fxCanvas.style.height = window.innerHeight+'px';
+    ctx.setTransform(1,0,0,1,0,0); ctx.scale(dpr, dpr);
+  }
+  resizeCanvas(); window.addEventListener('resize', resizeCanvas);
+
+  const particles = [];
+  const PARTICLE_COLORS = ['#ffb400','#ff5a5f','#16c2a3','#3e7bfa','#ff8c42'];
+  function spawnParticles(x, y, count, spread, colors) {
+    for (let i=0; i<count; i++) {
+      const a = Math.random()*Math.PI*2, s = 2+Math.random()*spread;
+      particles.push({ x, y, vx: Math.cos(a)*s, vy: Math.sin(a)*s-1.5, life:1, decay:0.015+Math.random()*0.04, size:3+Math.random()*7, color:colors[Math.floor(Math.random()*colors.length)] });
+    }
+  }
+  function updateParticles() {
+    for (let i=particles.length-1; i>=0; i--) {
+      const p = particles[i]; p.x+=p.vx; p.y+=p.vy; p.vy+=0.06; p.life-=p.decay;
+      if (p.life<=0) particles.splice(i,1);
+    }
+  }
+  function renderParticles() {
+    ctx.clearRect(0,0,fxCanvas.width,fxCanvas.height);
+    for (const p of particles) { ctx.save(); ctx.globalAlpha=p.life; ctx.fillStyle=p.color; ctx.beginPath(); ctx.arc(p.x,p.y,p.size*p.life,0,Math.PI*2); ctx.fill(); ctx.restore(); }
+  }
+
+  // ============================================================
+  //  ★ 奶龙实例状态
+  // ============================================================
+  const MAX = 3;
+  const SPRING = 0.15, DAMPING = 0.82, MAX_SQ = 0.38, MAX_ST = 0.45;
+  const DRAG_THRESHOLD = 12, TAP_TIMEOUT = 300, LAUGH_DELAY = 350;
+  const FACE_SCALE = { closed: 1, open: 1.7, laugh: 1.8 };
+
+  // 布局配置 [x%, y%, sizePx]
+  const LAYOUTS = {
+    1: [{ x:50, y:50, s:300 }],
+    2: [{ x:30, y:50, s:220 }, { x:70, y:50, s:220 }],
+    3: [{ x:50, y:32, s:190 }, { x:28, y:68, s:190 }, { x:72, y:68, s:190 }]
+  };
+
+  let activeCount = 1;
+
+  // 每只奶龙的状态
+  function createNailongState() {
+    return {
+      deformX:0, deformY:0, velX:0, velY:0,
+      targetX:0, targetY:0, squeezeIntensity:0,
+      down:false, onChar:false, pid:null,
+      downX:0, downY:0, downTime:0,
+      dragging:false, laughPlayed:false,
+      face:'closed', faceTimer:null,
+      _src:null, _laughLoop:false,
+      ringAnim:0
+    };
+  }
+  const NL = [createNailongState(), createNailongState(), createNailongState()];
+
+  // 重置一只奶龙
+  function resetNailong(nl, dom) {
+    nl.deformX=nl.deformY=nl.velX=nl.velY=nl.targetX=nl.targetY=nl.squeezeIntensity=0;
+    nl.down=nl.onChar=nl.dragging=nl.laughPlayed=false; nl.pid=null;
+    nl._pending=0; nl._laughLoop=false;
+    stopLaughFor(nl);
+    // 清空残留音源
+    nl._sources = nl._sources || [];
+    while (nl._sources.length > 0) _killSource(nl._sources.shift(), nl);
+    setFaceN(nl, dom, 'closed');
+    dom.jelly.style.transform = '';
+    dom.jelly.style.filter = 'drop-shadow(0 14px 30px rgba(135,131,126,.35))';
+    dom.inner.style.transform = '';
+    dom.ring.style.opacity = '0';
+    nl.ringAnim = 0;
+  }
+
+  // ★ 表情切换
+  function setFaceN(nl, dom, face, duration) {
+    clearTimeout(nl.faceTimer); nl.faceTimer = null;
+    switch (face) {
+      case 'closed': dom.img.src = IMG_CLOSED; break;
+      case 'open':   dom.img.src = IMG_OPEN;   break;
+      case 'laugh':  dom.img.src = IMG_LAUGH;  break;
+    }
+    dom.img.style.transform = `scale(${FACE_SCALE[face]||1})`;
+    nl.face = face;
+    if (duration && duration > 0) {
+      nl.faceTimer = setTimeout(() => setFaceN(nl, dom, 'closed'), duration);
+    }
+  }
+
+  // 更新布局
+  function updateLayout() {
+    const cfg = LAYOUTS[activeCount] || LAYOUTS[1];
+    for (let i = 0; i < MAX; i++) {
+      const slot = slots[i].slot;
+      if (i < activeCount) {
+        const c = cfg[i];
+        slot.style.display = 'block';
+        slot.style.left = c.x + '%';
+        slot.style.top  = c.y + '%';
+        slot.style.width = c.s + 'px';
+        slot.style.transform = 'translate(-50%, -50%)';
+      } else {
+        slot.style.display = 'none';
+      }
+    }
+    countNum.textContent = activeCount;
+  }
+
+  function getNailongCenter(dom) {
+    const r = dom.inner.getBoundingClientRect();
+    return { cx: r.left+r.width/2, cy: r.top+r.height/2, w: r.width, h: r.height };
+  }
+
+  function isOnNailong(dom, px, py) {
+    const m = 25;
+    const { cx, cy, w, h } = getNailongCenter(dom);
+    return px>=cx-w/2-m && px<=cx+w/2+m && py>=cy-h/2-m && py<=cy+h/2+m;
+  }
+
+  // ============================================================
+  //  ★ 每个奶龙独立的事件处理
+  // ============================================================
+  function makeHandlers(nid) {
+    const nl = NL[nid];
+    const dom = slots[nid];
+
+    function onDown(e) {
+      if (nl.down) return;
+      if (!isOnNailong(dom, e.clientX, e.clientY)) return;
+      unlockAudio();
+
+      nl.down=true; nl.onChar=true; nl.pid=e.pointerId;
+      nl.downX=e.clientX; nl.downY=e.clientY; nl.downTime=performance.now();
+      nl.dragging=false; nl.laughPlayed=false;
+
+      setFaceN(nl, dom, 'open');
+      nl.targetX = -0.5*MAX_SQ; nl.targetY = 0.5*MAX_SQ*0.85;
+      const { cx, cy } = getNailongCenter(dom);
+      spawnParticles(cx, cy, 6, 1.5, ['#ffb400','#ff8c42']);
+      nl.ringAnim = Math.min(1, 0.4*1.5);
+
+      hint.style.opacity='0'; hintSub.style.opacity='0';
+      dom.inner.setPointerCapture(e.pointerId);
+      e.preventDefault(); e.stopPropagation();
+    }
+
+    function onMove(e) {
+      if (!nl.down || !nl.onChar || e.pointerId!==nl.pid) return;
+      const dx=e.clientX-nl.downX, dy=e.clientY-nl.downY;
+      const dist=Math.sqrt(dx*dx+dy*dy);
+      if (dist>DRAG_THRESHOLD && !nl.dragging) {
+        nl.dragging=true;
+        // ★ 开始拖拽 → 立刻大笑
+        if (!nl.laughPlayed) { nl.laughPlayed=true; setFaceN(nl, dom, 'laugh'); startLaughFor(nl); }
+      }
+
+      if (nl.dragging) {
+        const capped=Math.min(dist/130,1), nx=dist>1?dx/dist:0, ny=dist>1?dy/dist:0;
+        nl.targetX=nx*capped*MAX_ST; nl.targetY=ny*capped*MAX_ST;
+        const { cx, cy } = getNailongCenter(dom);
+        if (Math.random()<0.3) spawnParticles(cx, cy, 2, 2, ['#ffb400','#16c2a3','#3e7bfa']);
+      } else {
+        const elapsed=performance.now()-nl.downTime;
+        const t=Math.min(1, elapsed/600);
+        nl.targetX = -(0.5+t*0.5)*MAX_SQ;
+        nl.targetY = (0.5+t*0.5)*MAX_SQ*0.85;
+        // ★ 变红就大笑：挤压强度过阈值 或 时间到
+        if ((nl.squeezeIntensity>0.12 || elapsed>LAUGH_DELAY) && !nl.laughPlayed) {
+          nl.laughPlayed=true; setFaceN(nl, dom, 'laugh'); startLaughFor(nl);
+        }
+      }
+      const raw = (Math.abs(nl.deformX)+Math.abs(nl.deformY))/(MAX_SQ*1.5);
+      nl.squeezeIntensity = nl.squeezeIntensity*0.7 + raw*0.3;
+      nl.ringAnim = Math.min(1, nl.squeezeIntensity*1.5);
+      e.preventDefault(); e.stopPropagation();
+    }
+
+    function onUp(e) {
+      if (e.pointerId!==nl.pid) return;
+      const elapsed=performance.now()-nl.downTime;
+      const wasTap = !nl.dragging && elapsed<TAP_TIMEOUT;
+      const { cx, cy } = getNailongCenter(dom);
+
+      // ★ 只有大笑在播时才停，避免误杀点击音效
+      if (nl._laughLoop) stopLaughFor(nl);
+
+      if (wasTap) {
+        // ★ 点击后一直睁眼，直到音频结束才闭眼
+        setFaceN(nl, dom, 'open');
+        playClickFor(nl, () => {
+          if (!nl.down) setFaceN(nl, dom, 'closed');
+        });
+        spawnParticles(cx, cy, 8, 2, ['#ffb400','#ff5a5f','#3e7bfa']);
+      } else {
+        const wasHard = nl.squeezeIntensity>0.45 || (nl.dragging && Math.abs(nl.deformX)>0.25);
+        if (wasHard) {
+          if (!nl.laughPlayed) {
+            setFaceN(nl, dom, 'laugh', 400);
+            // 拖太快没触发大笑，补一个短的
+            if (useWebAudio && laughBuf) playFor(nl, laughBuf, null, [0.9,1.1], false);
+            else if (laughEl) playFor(nl, null, laughEl, null, false);
+          } else {
+            setFaceN(nl, dom, 'laugh', 300);
+          }
+          spawnParticles(cx, cy, 28, 5, PARTICLE_COLORS);
+          playClickFor(nl);
+        } else if (nl.squeezeIntensity>0.2) {
+          setFaceN(nl, dom, 'closed');
+          spawnParticles(cx, cy, 10, 3, ['#ffb400','#ff5a5f']);
+        } else {
+          setFaceN(nl, dom, 'closed');
+        }
+      }
+
+      nl.targetX=0; nl.targetY=0;
+      nl.velX+=(Math.random()-0.5)*0.04; nl.velY+=(Math.random()-0.5)*0.04;
+      nl.down=nl.onChar=nl.dragging=false; nl.pid=null; nl.laughPlayed=false;
+
+      hint.style.opacity=''; hintSub.style.opacity='';
+      try { dom.inner.releasePointerCapture(e.pointerId); } catch(_) {}
+      e.preventDefault(); e.stopPropagation();
+    }
+
+    dom.inner.addEventListener('pointerdown', onDown);
+    dom.inner.addEventListener('pointermove', onMove);
+    dom.inner.addEventListener('pointerup', onUp);
+    dom.inner.addEventListener('pointercancel', onUp);
+    dom.inner.addEventListener('pointerleave', onUp);
+    window.addEventListener('pointerup', (e) => {
+      if (nl.down && e.pointerId===nl.pid) onUp(e);
+    });
+  }
+
+  for (let i=0; i<MAX; i++) makeHandlers(i);
+
+  // ============================================================
+  //  物理更新（每帧对所有活跃奶龙）
+  // ============================================================
+  function updatePhysicsFor(nl) {
+    nl.velX += (nl.targetX - nl.deformX)*SPRING;
+    nl.velY += (nl.targetY - nl.deformY)*SPRING;
+    nl.velX *= DAMPING; nl.velY *= DAMPING;
+    nl.deformX += nl.velX; nl.deformY += nl.velY;
+    const raw = (Math.abs(nl.deformX)+Math.abs(nl.deformY))/(MAX_SQ*1.5);
+    nl.squeezeIntensity = nl.squeezeIntensity*0.7 + raw*0.3;
+  }
+
+  function applyDeformFor(nl, dom) {
+    const sx=1+nl.deformX, sy=1+nl.deformY, sr=nl.deformX*0.08;
+    dom.jelly.style.transform = `scaleX(${sx}) scaleY(${sy}) rotate(${sr}deg)`;
+    const red = Math.min(1, nl.squeezeIntensity*2.5);
+    dom.jelly.style.filter = red>0.05
+      ? `drop-shadow(0 14px 30px rgba(135,131,126,.35)) saturate(${1+red*0.5}) hue-rotate(${-red*12}deg)`
+      : 'drop-shadow(0 14px 30px rgba(135,131,126,.35))';
+  }
+
+  function updateRingFor(nl, dom) {
+    if (nl.ringAnim>0.001) {
+      dom.ring.style.transform = `scale(${0.8+nl.ringAnim*0.5})`;
+      dom.ring.style.borderColor = `rgba(255,180,0,${nl.ringAnim*0.6})`;
+      dom.ring.style.opacity = nl.ringAnim;
+      nl.ringAnim *= 0.9;
+    } else { nl.ringAnim=0; dom.ring.style.opacity='0'; }
+  }
+
+  // ============================================================
+  //  主循环
+  // ============================================================
+  function loop(timestamp) {
+    for (let i=0; i<activeCount; i++) {
+      const nl=NL[i], dom=slots[i];
+      updatePhysicsFor(nl);
+      applyDeformFor(nl, dom);
+
+      if (!nl.down) {
+        const td = Math.abs(nl.deformX)+Math.abs(nl.deformY);
+        const idleY = Math.sin(timestamp*0.0015 + i*0.8)*5;
+        dom.inner.style.transform = `translateY(${idleY}px)`;
+        if (td<0.012) {
+          const b = 1+Math.sin(timestamp*0.0021 + i*0.5)*0.018;
+          dom.jelly.style.transform = `scale(${b})`;
+        }
+      } else {
+        dom.inner.style.transform = 'translateY(0)';
+      }
+      updateRingFor(nl, dom);
+    }
+
+    updateParticles();
+    renderParticles();
+    requestAnimationFrame(loop);
+  }
+
+  // ============================================================
+  //  ★ 计数器按钮
+  // ============================================================
+  btnCount.addEventListener('click', () => {
+    unlockAudio();
+    activeCount = activeCount>=MAX ? 1 : activeCount+1;
+    for (let i=0; i<MAX; i++) resetNailong(NL[i], slots[i]);
+    updateLayout();
+  });
+
+  // ★ 声音覆盖开关（默认叠加模式，按钮非红=叠加，红=覆盖）
+  btnOverlap.addEventListener('click', () => {
+    allowOverlap = !allowOverlap;
+    btnOverlap.classList.toggle('is-muted', allowOverlap);
+  });
+  // 初始化：叠加模式，非红
+  btnOverlap.classList.remove('is-muted');
+
+  // 音效按钮
+  btnSound.addEventListener('click', () => {
+    unlockAudio();
+    soundEnabled = !soundEnabled;
+    btnSound.classList.toggle('is-muted', !soundEnabled);
+    if (!soundEnabled) {
+      for (let i=0; i<MAX; i++) stopLaughFor(NL[i]);
+    }
+  });
+
+  // 重置按钮
+  document.getElementById('btn-reset').addEventListener('click', () => {
+    for (let i=0; i<MAX; i++) resetNailong(NL[i], slots[i]);
+    updateLayout();
+  });
+
+  // ============================================================
+  //  启动
+  // ============================================================
+  async function init() {
+    updateProgress(0.05);
+    await preloadImages();
+    await loadSounds();
+    updateProgress(1);
+    await new Promise(r => setTimeout(r, 300));
+    loadOverlay.classList.add('is-done');
+    updateLayout();
+    requestAnimationFrame(loop);
+    window.addEventListener('resize', updateLayout);
+    console.log('🐉 奶龙捏捏乐 已就绪！×'+activeCount+'只 · 独立音轨 · 大笑循环');
+  }
+  init();
+})();
+</script>
+</body>
+</html>
