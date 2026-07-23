@@ -64,25 +64,25 @@
   /* 顶部控制 */
   #top-controls {
     position: absolute;
-    top: max(14px, env(safe-area-inset-top));
-    left: max(14px, env(safe-area-inset-left));
-    right: max(14px, env(safe-area-inset-right));
+    top: max(10px, env(safe-area-inset-top));
+    left: max(8px, env(safe-area-inset-left));
+    right: max(8px, env(safe-area-inset-right));
     z-index: 20;
-    display: flex; align-items: flex-start; justify-content: space-between;
+    display: flex; align-items: flex-start; justify-content: space-between; flex-wrap: wrap; gap: 6px;
     filter: drop-shadow(0 6px 14px rgba(135,131,126,.22));
     pointer-events: none;
   }
-  .control-group { display: flex; gap: 8px; }
+  .control-group { display: flex; gap: clamp(4px, 1.2vw, 8px); }
   .control-button {
     --btn-edge: rgba(135,131,126,.72); --btn-fill: rgba(255,242,220,.92);
     position: relative;
-    min-width: 68px; min-height: 44px; padding: 8px 14px;
+    min-width: clamp(52px, 13vw, 72px); min-height: clamp(38px, 8.5vw, 48px); padding: clamp(5px, 1.2vw, 10px) clamp(8px, 2vw, 16px);
     border: none;
-    display: inline-flex; align-items: center; justify-content: center; gap: 6px;
+    display: inline-flex; align-items: center; justify-content: center; gap: clamp(3px, 0.8vw, 6px);
     color: var(--gray); background: var(--btn-edge);
     clip-path: polygon(10px 0, calc(100% - 10px) 0, 100% 10px, 100% calc(100% - 10px),
                        calc(100% - 10px) 100%, 10px 100%, 0 calc(100% - 10px), 0 10px);
-    font: 700 13px/1 "PingFang SC", "Microsoft YaHei", system-ui, sans-serif;
+    font: 700 clamp(11px, 2.4vw, 14px)/1 "PingFang SC", "Microsoft YaHei", system-ui, sans-serif;
     cursor: pointer; pointer-events: auto; touch-action: manipulation;
     -webkit-tap-highlight-color: transparent; transition: color .2s ease;
   }
@@ -100,32 +100,34 @@
     --btn-edge: rgba(255,90,95,.68); --btn-fill: rgba(255,255,255,.94); color: var(--coral);
   }
   .control-button svg {
-    width: 20px; height: 20px; overflow: visible;
+    width: clamp(16px, 3.5vw, 20px); height: clamp(16px, 3.5vw, 20px); overflow: visible;
     fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round;
   }
   .control-button .mute-slash { opacity: 0; stroke: var(--coral); stroke-width: 2.6; transition: opacity .2s ease; }
   .control-button.is-muted .mute-slash { opacity: 1; }
   #btn-count {
-    font: 700 14px/1 "PingFang SC", "Microsoft YaHei", system-ui, sans-serif;
+    font: 700 clamp(12px, 2.6vw, 15px)/1 "PingFang SC", "Microsoft YaHei", system-ui, sans-serif;
     letter-spacing: .03em;
   }
   .count-num { color: var(--amber); font-size: 1.1em; margin: 0 2px; }
 
   #hint {
     position: absolute;
-    bottom: max(32px, env(safe-area-inset-bottom));
+    bottom: max(28px, env(safe-area-inset-bottom, 28px));
     left: 50%; transform: translateX(-50%); z-index: 15;
     color: rgba(135,131,126,.55);
-    font: 600 14px/1.4 "PingFang SC", "Microsoft YaHei", system-ui, sans-serif;
+    font: 600 clamp(12px, 2.6vw, 15px)/1.4 "PingFang SC", "Microsoft YaHei", system-ui, sans-serif;
     letter-spacing: .04em; pointer-events: none; transition: opacity .6s ease;
+    text-align: center; padding: 0 16px;
   }
   #hint-sub {
     position: absolute;
-    bottom: max(14px, env(safe-area-inset-bottom));
+    bottom: max(10px, env(safe-area-inset-bottom, 10px));
     left: 50%; transform: translateX(-50%); z-index: 15;
     color: rgba(135,131,126,.45);
-    font: 600 12px/1.4 "PingFang SC", "Microsoft YaHei", system-ui, sans-serif;
+    font: 600 clamp(10px, 2.2vw, 13px)/1.4 "PingFang SC", "Microsoft YaHei", system-ui, sans-serif;
     letter-spacing: .04em; pointer-events: none; transition: opacity .6s ease;
+    text-align: center; padding: 0 16px;
   }
   #loading {
     position: fixed; inset: 0; z-index: 99;
@@ -140,18 +142,32 @@
     from { transform: translateY(0) scale(1); }
     to   { transform: translateY(-12px) scale(1.08); }
   }
-  #loading-text { color: var(--gray); font: 600 15px/1 "PingFang SC", "Microsoft YaHei", system-ui, sans-serif; letter-spacing: .06em; }
-  #loading-bar { width: 180px; height: 4px; background: rgba(135,131,126,.15); border-radius: 2px; overflow: hidden; }
+  #loading-text { color: var(--gray); font: 600 clamp(13px, 2.8vw, 16px)/1 "PingFang SC", "Microsoft YaHei", system-ui, sans-serif; letter-spacing: .06em; }
+  #loading-bar { width: clamp(140px, 35vw, 200px); height: 4px; background: rgba(135,131,126,.15); border-radius: 2px; overflow: hidden; }
   #loading-fill { height: 100%; width: 0%; background: var(--amber); border-radius: 2px; transition: width .25s ease; }
   @media (prefers-reduced-motion: reduce) {
     .nailong-slot, .nailong-slot .char-inner, .nailong-slot .char-jelly, #fx { animation: none !important; transition: none !important; }
+  }
+
+  /* ★ 横屏手机适配 */
+  @media (orientation: landscape) and (max-height: 500px) {
+    #top-controls { top: max(4px, env(safe-area-inset-top)); }
+    .control-button { min-height: clamp(30px, 12vw, 40px); }
+    #hint { bottom: max(4px, env(safe-area-inset-bottom)); }
+    #hint-sub { display: none; }
+  }
+
+  /* ★ 超小屏适配 */
+  @media (max-width: 360px) {
+    #btn-support { display: none; }
+    .control-button { min-width: clamp(44px, 14vw, 56px); }
   }
 </style>
 </head>
 <body>
 
 <div id="loading">
-  <div id="loading-icon"><img src="图片/图标.png" alt="奶龙" style="width:80px;height:80px;" /></div>
+  <div id="loading-icon"><img src="图片/图标.png" alt="奶龙" style="width:clamp(64px,16vw,88px);height:auto;" /></div>
   <div id="loading-text">奶龙加载中…</div>
   <div id="loading-bar"><div id="loading-fill"></div></div>
 </div>
@@ -457,12 +473,23 @@
   const DRAG_THRESHOLD = 12, TAP_TIMEOUT = 300, LAUGH_DELAY = 350;
   const FACE_SCALE = { closed: 1, open: 1.7, laugh: 1.8 };
 
-  // 布局配置 [x%, y%, sizePx]
-  const LAYOUTS = {
-    1: [{ x:50, y:50, s:300 }],
-    2: [{ x:30, y:50, s:220 }, { x:70, y:50, s:220 }],
-    3: [{ x:50, y:32, s:190 }, { x:28, y:68, s:190 }, { x:72, y:68, s:190 }]
-  };
+  // ★ 动态布局：根据视口计算奶龙大小 (x%, y%, sizePx)
+  function getLayout() {
+    const vw = window.innerWidth;
+    const vh = window.innerHeight;
+    const vmin = Math.min(vw, vh);
+
+    // 控制栏+提示区预留约 100-130px，按高度缩放
+    const s1 = Math.round(Math.min(300, Math.max(150, vmin * 0.50)));
+    const s2 = Math.round(Math.min(220, Math.max(110, vmin * 0.36)));
+    const s3 = Math.round(Math.min(190, Math.max( 90, vmin * 0.30)));
+
+    return {
+      1: [{ x:50, y:50, s: s1 }],
+      2: [{ x:30, y:50, s: s2 }, { x:70, y:50, s: s2 }],
+      3: [{ x:50, y:32, s: s3 }, { x:28, y:68, s: s3 }, { x:72, y:68, s: s3 }]
+    };
+  }
 
   let activeCount = 1;
 
@@ -513,9 +540,9 @@
     }
   }
 
-  // 更新布局
+  // 更新布局（响应式：每次调用重新计算奶龙大小）
   function updateLayout() {
-    const cfg = LAYOUTS[activeCount] || LAYOUTS[1];
+    const cfg = getLayout()[activeCount] || getLayout()[1];
     for (let i = 0; i < MAX; i++) {
       const slot = slots[i].slot;
       if (i < activeCount) {
@@ -764,7 +791,8 @@
     updateLayout();
     requestAnimationFrame(loop);
     window.addEventListener('resize', updateLayout);
-    console.log('🐉 奶龙捏捏乐 已就绪！×'+activeCount+'只 · 独立音轨 · 大笑循环');
+    window.addEventListener('orientationchange', () => setTimeout(updateLayout, 100));
+    console.log('🐉 奶龙捏捏乐 已就绪 · 响应式布局 · ×'+activeCount+'只 · 独立音轨 · 大笑循环');
   }
   init();
 })();
